@@ -3,7 +3,7 @@ This software is to find the main ip of the server by bypassing cloudflare sites
 
 ## Usage 
 
-git clone 
+git clone https://github.com/azhackercom/bypassflare.git
 
 cd bypassflare
 
