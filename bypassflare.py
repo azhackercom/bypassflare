@@ -1,6 +1,6 @@
-import cloudscraper
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 import json
-
 
 logo = """
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -41,23 +41,30 @@ logo = """
 print(logo)
 
 
-url = input("Enter the URL of a Cloudflare-protected website: ")
+chrome_options = Options()
+chrome_options.add_argument("--headless")  
+driver = webdriver.Chrome(options=chrome_options)
 
-print()
+url = input("Enter the URL of a Cloudflare-protected website: ")
 print("Connecting to website...")
 
-scraper = cloudscraper.create_scraper()
-response = scraper.get(url)
+driver.get(url)
 
-cookies = response.cookies.get_dict()
+
+driver.implicitly_wait(10)
+
+
+cookies = {}
+for cookie in driver.get_cookies():
+    cookies[cookie['name']] = cookie['value']
+
+
+driver.quit()
 
 headers = {
     'Referer': url,
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36' 
 }
-
-cf_clearance = cookies['cf_clearance']
-cfduid = cookies['__cfduid']
 
 params = {
     "act": "fzc2",
@@ -66,7 +73,7 @@ params = {
     "jschl-answer": ""
 }
 
-challenge_url = response.url
+challenge_url = url
 challenge = challenge_url.split("/")[-1]
 
 for i in range(0, 10):
@@ -75,11 +82,37 @@ for i in range(0, 10):
     else:
         params["jschl_vc"] = str(int(params["jschl_vc"]) + 1)
     params["pass"] = cookies["__cf_bm"]
-    jschl_answer = (json.loads(scraper.get("https://www.example.com/cdn-cgi/l/chk_jschl", headers=headers, params=params).text))["pass"]
-    params["jschl-answer"] = str(jschl_answer)
     
-# Get the IP address of the real server
-real_ip = scraper.get(url, headers=headers).raw._original_response.fp.raw._sock.getpeername()[0]
+  
+    driver = webdriver.Chrome(options=chrome_options)
+    jschl_answer_url = f"https://{challenge_url}/cdn-cgi/l/chk_jschl"
+    driver.get(jschl_answer_url)
+    driver.implicitly_wait(10)
+    
+    jschl_answer_input = driver.find_element_by_name("jschl_answer")
+    jschl_answer_input.send_keys(params["jschl-answer"])
+    
+    jschl_vc_input = driver.find_element_by_name("jschl_vc")
+    jschl_vc_input.send_keys(params["jschl_vc"])
+    
+    pass_input = driver.find_element_by_name("pass")
+    pass_input.send_keys(params["pass"])
+    
+    jschl_submit_button = driver.find_element_by_xpath("//form[@id='challenge-form']//button[@type='submit']")
+    jschl_submit_button.click()
+    
+   
+    driver.implicitly_wait(10)
+    
+  
+    for cookie in driver.get_cookies():
+        cookies[cookie['name']] = cookie['value']
+        
+   
+    driver.quit()
+    
 
-print()
+scraper = cloudscraper.create_scraper()
+real_ip = scraper.get(url, headers=headers, cookies=cookies).raw._original_response.fp.raw._sock.getpeername()[0]
+
 print(f"The original IP address of the server behind {url} is: {real_ip}")
